@@ -305,8 +305,11 @@ def run_measurement(device_index: Optional[int] = None):
     payload["Resumen"] = {"overall": res.overall}
 
     out = REPORTS_DIR / f"analysis_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(out,"w") as f:
-        json.dump(payload,f,indent=2)
+    payload_safe = to_json_safe(payload)
+    
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(payload_safe, f, indent=2)
+
 
     send_tb(payload, cfg)
     return res, payload, out, x_ref, x_cur, fs
