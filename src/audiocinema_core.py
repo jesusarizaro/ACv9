@@ -244,6 +244,13 @@ def run_measurement(device_index: Optional[int] = None):
 
     res = analyze(x_ref, x_cur, fs, cfg)
 
+    wav_dir = DATA_DIR / "wavs"
+    wav_dir.mkdir(exist_ok=True)
+    
+    sf.write(wav_dir / "last_reference.wav", x_ref, fs)
+    sf.write(wav_dir / "last_capture.wav", x_cur, fs)
+
+    
     payload = {
         f"Canal{c.index}": {
             "Evaluacion": c.evaluacion,
