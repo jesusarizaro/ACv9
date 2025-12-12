@@ -27,6 +27,7 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 import matplotlib
+from soundfile import read
 
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -583,6 +584,14 @@ class AudioCinemaGUI:
         # Permite que run_measurement devuelva 6 o 7 valores
         res, payload, out_path = run_measurement(device_index=dev_idx)
 
+        wav_dir = APP_DIR / "data" / "wavs"
+        
+        x_ref, fs = read(wav_dir / "last_reference.wav", dtype="float32")
+        x_cur, _  = read(wav_dir / "last_capture.wav", dtype="float32")
+        
+
+
+      
         self._clear_waves()
         self._plot_wave(self.ax_ref, x_ref, fs)
         self._plot_wave(self.ax_cur, x_cur, fs)
