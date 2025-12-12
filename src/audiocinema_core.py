@@ -238,10 +238,28 @@ def analyze(x_ref: np.ndarray, x_cur: np.ndarray, fs: int, cfg: Dict) -> GlobalR
         seg_ref = x_ref[a:b]
         seg_cur = x_cur[a:b]
 
-        rms_r = rms_db(seg_ref)
-        rms_c = rms_db(seg_cur)
-        crest_r = crest_db(seg_ref)
-        crest_c = crest_db(seg_cur)
+        m_ref = safe_metrics(seg_ref)
+        m_cur = safe_metrics(seg_cur)
+        
+        if m_ref is None or m_cur is None:
+            estado = "MUERTO"
+            evaluacion = "FAILED"
+            rms_r = rms_c = crest_r = crest_c = -120.0
+        else:
+            rms_r, crest_r = m_ref
+            rms_c, crest_c = m_cur
+        
+            if rms_c < DEAD_RMS_DB:
+                estado = "MUERTO"
+                evaluacion = "FAILED"
+            else:
+                estado = "VIVO"
+                evaluacion = "PASSED"
+                if abs(rms_c - rms_r) > tol["rms_db"]:
+                    evaluacion = "FAILED"
+                if abs(crest_c - crest_r) > tol["crest_db"]:
+                    evaluacion = "FAILED"
+
 
         if rms_c < DEAD_RMS_DB:
             estado = "MUERTO"
