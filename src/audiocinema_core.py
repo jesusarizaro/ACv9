@@ -48,26 +48,55 @@ for p in [CONFIG_DIR, DATA_DIR, REPORTS_DIR, ASSETS_DIR]:
 # ======================================================
 
 DEFAULT_CONFIG = {
-    "audio": {"fs": 48000, "duration_s": 30.0},
-    "reference": {"path": str(ASSETS_DIR / "reference_master.wav")},
+    "audio": {
+        "fs": 48000,
+        "duration_s": 30.0,
+    },
+    "reference": {
+        "path": str(ASSETS_DIR / "reference_master.wav")
+    },
     "evaluation": {
         "level": "Medio",
         "tolerances": {
-            "Bajo":  {"rms_db": 6, "crest_db": 6},
-            "Medio": {"rms_db": 3, "crest_db": 4},
-            "Alto":  {"rms_db": 1.5, "crest_db": 2},
+            "Bajo":  {"rms_db": 6, "crest_db": 6, "spec95_db": 18},
+            "Medio": {"rms_db": 3, "crest_db": 4, "spec95_db": 12},
+            "Alto":  {"rms_db": 1.5, "crest_db": 2, "spec95_db": 6},
         }
     },
-    "thingsboard": {"host": "thingsboard.cloud", "port": 1883, "token": ""}
+    "thingsboard": {
+        "host": "thingsboard.cloud",
+        "port": 1883,
+        "use_tls": False,
+        "token": ""
+    },
+    "schedule": {
+        "enabled": False,
+        "mode": "daily",      # daily | weekly
+        "weekday": 0,         # 0=lunes
+        "hour": 22,
+        "minute": 0,
+        "last_run_date": ""
+    }
 }
 
-def load_config() -> Dict:
+
+def load_config():
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
+            user_cfg = yaml.safe_load(f) or {}
     else:
-        cfg = {}
-    return DEFAULT_CONFIG | cfg
+        user_cfg = {}
+
+    cfg = DEFAULT_CONFIG.copy()
+
+    for k, v in user_cfg.items():
+        if isinstance(v, dict) and k in cfg:
+            cfg[k] = cfg[k] | v
+        else:
+            cfg[k] = v
+
+    return cfg
+
 
 # ======================================================
 # AUDIO UTILS
