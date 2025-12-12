@@ -9,7 +9,7 @@ from __future__ import annotations
 import os, json
 from dataclasses import dataclass
 from pathlib import Path
-from datetime import datetime, date, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -19,7 +19,7 @@ import yaml
 import paho.mqtt.client as mqtt
 
 # ======================================================
-# CONSTANTES DEL SISTEMA (CLAVES)
+# CONSTANTES DEL SISTEMA
 # ======================================================
 
 BEEP_FREQ_HZ = 5000.0
@@ -53,18 +53,18 @@ DEFAULT_CONFIG = {
     "evaluation": {
         "level": "Medio",
         "tolerances": {
-            "Bajo":  {"rms_db": 6, "crest_db": 6, "spec95_db": 18},
-            "Medio": {"rms_db": 3, "crest_db": 4, "spec95_db": 12},
-            "Alto":  {"rms_db": 1.5, "crest_db": 2, "spec95_db": 6},
+            "Bajo":  {"rms_db": 6, "crest_db": 6},
+            "Medio": {"rms_db": 3, "crest_db": 4},
+            "Alto":  {"rms_db": 1.5, "crest_db": 2},
         }
     },
     "thingsboard": {"host": "thingsboard.cloud", "port": 1883, "token": ""}
 }
 
-def load_config():
+def load_config() -> Dict:
     if CONFIG_PATH.exists():
-        with open(CONFIG_PATH) as f:
-            cfg = yaml.safe_load(f)
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
     else:
         cfg = {}
     return DEFAULT_CONFIG | cfg
@@ -73,22 +73,22 @@ def load_config():
 # AUDIO UTILS
 # ======================================================
 
-def normalize(x):
+def normalize(x: np.ndarray) -> np.ndarray:
     m = np.max(np.abs(x)) + 1e-12
     return (x / m).astype(np.float32)
 
-def rms_db(x):
+def rms_db(x: np.ndarray) -> float:
     return 20*np.log10(np.sqrt(np.mean(x**2)+1e-20)+1e-20)
 
-def crest_db(x):
+def crest_db(x: np.ndarray) -> float:
     return 20*np.log10((np.max(np.abs(x))+1e-20) /
                        (np.sqrt(np.mean(x**2))+1e-20))
 
 # ======================================================
-# GOERTZEL — detección 5k
+# GOERTZEL — detección de 5 kHz
 # ======================================================
 
-def detect_5k_start(x, fs):
+def detect_5k_start(x: np.ndarray, fs: int) -> Optional[float]:
     win = int(0.15 * fs)
     step = int(0.05 * fs)
     k = int(0.5 + (win * BEEP_FREQ_HZ) / fs)
@@ -140,7 +140,7 @@ class GlobalResult:
 # ANALYZER
 # ======================================================
 
-def analyze(x_ref, x_cur, fs, cfg) -> GlobalResult:
+def analyze(x_ref: np.ndarray, x_cur: np.ndarray, fs: int, cfg: Dict) -> GlobalResult:
     tol = cfg["evaluation"]["tolerances"][cfg["evaluation"]["level"]]
 
     t0_ref = detect_5k_start(x_ref, fs)
@@ -211,7 +211,7 @@ def analyze(x_ref, x_cur, fs, cfg) -> GlobalResult:
 # THINGSBOARD
 # ======================================================
 
-def send_tb(payload, cfg):
+def send_tb(payload: Dict, cfg: Dict) -> bool:
     token = cfg["thingsboard"]["token"]
     if not token:
         return False
@@ -230,7 +230,7 @@ def send_tb(payload, cfg):
 # MAIN MEASUREMENT
 # ======================================================
 
-def run_measurement(device_index=None):
+def run_measurement(device_index: Optional[int] = None):
     cfg = load_config()
     fs = cfg["audio"]["fs"]
     dur = cfg["audio"]["duration_s"]
@@ -260,4 +260,4 @@ def run_measurement(device_index=None):
         json.dump(payload,f,indent=2)
 
     send_tb(payload, cfg)
-    return res, payload, out
+    return res, payload, out, x_ref, x_cur, fs
