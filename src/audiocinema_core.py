@@ -292,16 +292,33 @@ def send_tb(payload: Dict, cfg: Dict) -> bool:
     token = cfg["thingsboard"]["token"]
     if not token:
         return False
+
+    host = cfg["thingsboard"].get("host", "thingsboard.cloud")
+    port = int(cfg["thingsboard"].get("port", 1883))
+    use_tls = bool(cfg["thingsboard"].get("use_tls", False))
+
     try:
-        client = mqtt.Client()
+        client = mqtt.Client(protocol=mqtt.MQTTv311)
         client.username_pw_set(token)
-        client.connect(cfg["thingsboard"]["host"],
-                       cfg["thingsboard"]["port"], 30)
-        client.publish("v1/devices/me/telemetry", json.dumps(payload), qos=1)
+
+        if use_tls:
+            client.tls_set()  # usa CA del sistema
+
+        client.connect(host, port, keepalive=30)
+
+        # IMPORTANTE: payload debe ser JSON serializable (strings, números, bool, dict simples)
+        msg = client.publish(
+            "v1/devices/me/telemetry",
+            json.dumps(payload, ensure_ascii=False),
+            qos=1
+        )
+        msg.wait_for_publish()
         client.disconnect()
         return True
-    except Exception:
+    except Exception as e:
+        print("[TB] ERROR:", repr(e))
         return False
+
 
 # ======================================================
 # MAIN MEASUREMENT
@@ -328,16 +345,34 @@ def run_measurement(device_index: Optional[int] = None):
     sf.write(wav_dir / "last_capture.wav", x_cur, fs)
 
     
-    payload = {
-        f"Canal{c.index}": {
+    # --- arma el payload por canal como STRING JSON (contrato del widget) ---
+    payload = {}
+
+    for c in res.channels:
+        canal_obj = {
             "Evaluacion": c.evaluacion,
             "Estado": c.estado,
-            "rms": {"ref": c.rms_ref_db, "cin": c.rms_cin_db},
-            "crest": {"ref": c.crest_ref_db, "cin": c.crest_cin_db},
+
+            # OJO: aquí tú antes tenías ref/cine/delta por bandas.
+            # Si aún no las estás calculando en este core, déjalas como dict vacío
+            # o ponlas cuando vuelvas a calcularlas.
+            "ref":  {},
+            "cine": {},
+            "delta": {},
+
+            "rms":   {"ref_db": float(c.rms_ref_db),   "cin_db": float(c.rms_cin_db)},
+            "crest": {"ref_db": float(c.crest_ref_db), "cin_db": float(c.crest_cin_db)},
+
+            # si no lo calculas, déjalo en 0.0 o quítalo si tu widget no lo exige
+            "spec95_db": 0.0
         }
-        for c in res.channels
-    }
-    payload["Resumen"] = {"overall": res.overall}
+
+        # ✅ STRING JSON dentro de la key CanalX
+        payload[f"Canal{c.index}"] = json.dumps(canal_obj, ensure_ascii=False)
+
+    # ✅ usa el nombre que espera tu widget: summary (o Resumen si así lo tienes)
+    payload["Summary"] = json.dumps({"overall": res.overall}, ensure_ascii=False)
+
 
     out = REPORTS_DIR / f"analysis_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
     payload_safe = to_json_safe(payload)
