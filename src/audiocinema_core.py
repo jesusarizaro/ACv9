@@ -126,6 +126,23 @@ def crest_db(x: np.ndarray) -> float:
     return 20*np.log10((np.max(np.abs(x))+1e-20) /
                        (np.sqrt(np.mean(x**2))+1e-20))
 
+def safe_metrics(seg: np.ndarray):
+    """
+    Calcula RMS y Crest de forma segura.
+    Si el segmento está vacío o es inválido, retorna None.
+    """
+    if seg is None or len(seg) < 10:
+        return None
+
+    rms = rms_db(seg)
+    crest = crest_db(seg)
+    return rms, crest
+
+
+
+
+
+
 # ======================================================
 # GOERTZEL — detección de 5 kHz
 # ======================================================
