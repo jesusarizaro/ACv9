@@ -1,0 +1,8 @@
+[Unit]
+Description=AudioCinema automatic measurement
+After=network-online.target sound.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+ExecStart=@INSTALL_DIR@/run_scheduled.sh
