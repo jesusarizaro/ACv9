@@ -347,4 +347,4 @@ def run_measurement(device_index: Optional[int] = None):
 
 
     send_tb(payload, cfg)
-    return res, payload, out, x_ref, x_cur, fs
+    return res, payload, out
